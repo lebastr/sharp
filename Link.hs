@@ -3,5 +3,5 @@
 module Link where
 
 class Link a b where
-  type C a b :: *
-  link :: a -> b -> C a b
+  type L a b :: *
+  link :: a -> b -> L a b
