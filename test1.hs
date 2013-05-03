@@ -11,6 +11,7 @@ import Data.List
 import Prelude hiding (id, (.))
 import Control.Category
 import Console
+import Expr
 
 trace :: (Show a) => String -> SyncPipe a a
 trace text = createSyncPipe $ \v -> do
@@ -103,4 +104,6 @@ main = do
       app2 = i >--> w1
       app3 = (indicator <$> isActive 2000 i) >--> w0
       app4 = (i >-- delay 1000) >--> w2
-  runApp $ app1 `parallel` app2 `parallel` app3 `parallel` app4
+  app = app1 `parallel` app2 `parallel` app3 `parallel` app4
+  writeLog $ draw app
+  runApp app 

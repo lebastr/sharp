@@ -26,6 +26,9 @@ newtype Sink a = Sink (Expr (P.Sink a))
 
 newtype App = App (Expr E.App)
 
+instance Draw App where
+  draw (App expr) = draw expr
+
 filterSource :: (a -> Bool) -> Source a -> Source a
 filterSource p (Source sexpr) = Source $ FilterSource (unsafePerformIO refId) p sexpr
 
