@@ -1,52 +1,68 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeFamilies, GeneralizedNewtypeDeriving, DeriveDataTypeable, GADTs #-}
+{-# LANGUAGE CPP #-}
 
 module PrimitiveTypes where
 
--- import Prelude
+#ifdef FAY
+import FayRef
+#else
 import Data.IORef
-import Control.Monad
+#endif
 
-data Source a = Source (IORef [Sink a])
+#ifdef FAY
+type JS = Fay
+type JSRef = FayRef
+newJSRef = newFayRef
+readJSRef = readFayRef
+modifyJSRef = modifyFayRef
+writeJSRef = writeFayRef
+#else
+type JS = IO
+type JSRef = IORef
+newJSRef = newIORef
+#endif
+
+data Source a = Source (JSRef [Sink a])
               | Merge (Source a) (Source a)
               | EmptySource
 
-createSource :: ((a -> IO ()) -> IO ()) -> IO (Source a)
+createSource :: ((a -> JS ()) -> JS ()) -> JS (Source a)
 createSource call = do
-  ref <- newIORef []
+  ref <- newJSRef []
   call $ \v -> do
-    subs <- readIORef ref
+    subs <- readJSRef ref
     forM_ subs $ \c -> runSink c v
   return $ Source ref
 
--- cAsyncPipe :: ((a -> IO ()) -> IO ()) -> IO (Source a)
+-- cAsyncPipe :: ((a -> JS ()) -> JS ()) -> JS (Source a)
 -- cAsyncPipe call = do
---   ref <- newIORef []
+--   ref <- newJSRef []
 --   let sink = Sink $ \v -> call $ \v' ->
 
--- delay :: Int -> IO (AsyncPipe a a)
+-- delay :: Int -> JS (AsyncPipe a a)
 -- delay dt = do
---   ref <- newIORef []
+--   ref <- newJSRef []
 --   let sink = Sink $ \v -> do
---         subs <- readIORef ref
+--         subs <- readJSRef ref
 --         setTimeout dt $ forM_ subs $ \c -> runSink c v
 --       source = Source ref
 --   return $ Async sink source
 
-filterSource :: (a -> Bool) -> Source a -> IO (Source a)
+filterSource :: (a -> Bool) -> Source a -> JS (Source a)
 filterSource p source = do
-  ref <- newIORef []
+  ref <- newJSRef []
   let sink = Sink $ \v -> do
-        subs <- readIORef ref
+        subs <- readJSRef ref
         case p v of
           False -> return ()
           True  -> forM_ subs $ \c -> runSink c v
   source `sourceSink` sink
   return $ Source ref
 
-newtype Sink a = Sink { runSink :: a -> IO () }
+newtype Sink a = Sink { runSink :: a -> JS () }
 
 data Pipe a b = Async (Sink a) (Source b)
-              | Sync (a -> IO b)
+              | Sync (a -> JS b)
 
 -- instance Category SyncPipe where
 --   id = SyncPipe $ runKleisli id
@@ -71,24 +87,24 @@ data Pipe a b = Async (Sink a) (Source b)
 --   mempty = Sink $ \_ -> return ()
 --   mappend (Sink s1) (Sink s2) = Sink $ \v -> s1 v >> s2 v
 
-sourceSink :: Source a -> Sink a -> IO ()
-sourceSink (Source ref) sink = modifyIORef ref (sink:)
+sourceSink :: Source a -> Sink a -> JS ()
+sourceSink (Source ref) sink = modifyJSRef ref (sink:)
 sourceSink (Merge s1 s2) sink = s1 `sourceSink` sink >> s2 `sourceSink` sink
 sourceSink EmptySource sink = return ()
 
-sourcePipe :: Source a -> Pipe a b -> IO (Source b)
+sourcePipe :: Source a -> Pipe a b -> JS (Source b)
 sourcePipe source@(Source ref) pipe = case pipe of
   Sync runPipe -> do
-    ref1 <- newIORef []
+    ref1 <- newJSRef []
     let sink = Sink $ \v -> do
-          subs <- readIORef ref1
+          subs <- readJSRef ref1
           case null subs of
             True -> return ()
             False -> do
               v' <- runPipe v
               forM_ subs $ \c -> runSink c v'
 
-    modifyIORef ref (sink:)
+    modifyJSRef ref (sink:)
     return $ Source ref1
 
   Async sink source' -> do
@@ -102,13 +118,13 @@ sourcePipe (Merge s1 s2) pipe = do
 
 sourcePipe EmptySource pipe = return EmptySource
 
-pipeSink :: Pipe a b -> Sink b -> IO (Sink a)
+pipeSink :: Pipe a b -> Sink b -> JS (Sink a)
 pipeSink (Sync p) (Sink s) = return $ Sink $ \v -> p v >>= s
 pipeSink (Async sink source) sink1 = do
   source `sourceSink` sink1
   return sink
 
-pipePipe :: Pipe a b -> Pipe b c -> IO (Pipe a c)
+pipePipe :: Pipe a b -> Pipe b c -> JS (Pipe a c)
 pipePipe (Sync p1) (Sync p2) = return $ Sync $ \v -> p1 v >>= p2
 pipePipe p1@(Sync _) (Async sink source) = do
   sink' <- p1 `pipeSink` sink
