@@ -7,6 +7,7 @@ module PrimitiveTypes where
 import FayRef
 #else
 import Data.IORef
+import Control.Monad
 #endif
 
 #ifdef FAY
@@ -20,6 +21,9 @@ writeJSRef = writeFayRef
 type JS = IO
 type JSRef = IORef
 newJSRef = newIORef
+readJSRef = readIORef
+modifyJSRef = modifyIORef
+
 #endif
 
 data Source a = Source (JSRef [Sink a])
@@ -86,6 +90,12 @@ data Pipe a b = Async (Sink a) (Source b)
 -- instance Monoid (Sink a) where
 --   mempty = Sink $ \_ -> return ()
 --   mappend (Sink s1) (Sink s2) = Sink $ \v -> s1 v >> s2 v
+
+emptySink :: Sink a
+emptySink = Sink $ \_ -> return ()
+
+mergeSink :: Sink a -> Sink a -> Sink a
+mergeSink (Sink s1) (Sink s2) = Sink $ \v -> s1 v >> s2 v
 
 sourceSink :: Source a -> Sink a -> JS ()
 sourceSink (Source ref) sink = modifyJSRef ref (sink:)
