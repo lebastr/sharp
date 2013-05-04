@@ -24,20 +24,6 @@ createAsyncPipe action = do
       source = Source ref
   return $ Async sink source
         
--- cAsyncPipe :: ((a -> JS ()) -> JS ()) -> JS (Source a)
--- cAsyncPipe call = do
---   ref <- newJSRef []
---   let sink = Sink $ \v -> call $ \v' ->
-
--- delay :: Int -> JS (AsyncPipe a a)
--- delay dt = do
---   ref <- newJSRef []
---   let sink = Sink $ \v -> do
---         subs <- readJSRef ref
---         setTimeout dt $ forM_ subs $ \c -> runSink c v
---       source = Source ref
---   return $ Async sink source
-
 filterSource :: (a -> Bool) -> Source a -> JS (Source a)
 filterSource p source = do
   ref <- newJSRef []
