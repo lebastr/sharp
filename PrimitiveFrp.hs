@@ -5,7 +5,7 @@ module PrimitiveFrp where
 import Expr hiding (App)
 import qualified Expr as E
 import qualified PrimitiveTypes as P
-import Data.IORef
+import Platform
 
 newtype Pipe a b = Pipe (Expr (P.Pipe a b))
 
@@ -26,23 +26,21 @@ data Unique = Unique
 filterSource :: (a -> Bool) -> Source a -> Source a
 filterSource p (Source sexpr) = Source $ FilterSource (tag unique) p sexpr
 
-createSink :: (a -> IO ()) -> Sink a
+createSink :: (a -> JS ()) -> Sink a
 createSink s = Sink $ SinkExpr $ P.Sink s
 
-createSource :: ((a -> IO ()) -> IO ()) -> IO (Source a)
+createSource :: ((a -> JS ()) -> JS ()) -> JS (Source a)
 createSource g = do 
   s <- P.createSource g
   return $ Source $ SourceExpr (tag unique) s
 
--- createSyncPipe :: IO (a -> IO b) -> SyncPipe a b
--- createSyncPipe p = SyncPipe $ SPipeExprIO $ P.SyncPipe <$> p
 
-createSyncPipe :: IO (a -> IO b) -> Pipe a b
+createSyncPipe :: JS (a -> JS b) -> Pipe a b
 createSyncPipe action = Pipe $ PipeExpr $ do
   p <- action
   return $ P.Sync p 
 
-createAsyncPipe :: (a -> (b -> IO ()) -> IO ()) -> Pipe a b
+createAsyncPipe :: (a -> (b -> JS ()) -> JS ()) -> Pipe a b
 createAsyncPipe action = Pipe $ PipeExpr $ P.createAsyncPipe action
 
 scanP :: (a -> t -> a) -> a -> Pipe t a
@@ -51,17 +49,15 @@ scanP f = accum g where
 
 accum :: (s -> a -> (s,b)) -> s -> Pipe a b
 accum f state = createSyncPipe $ do
-  acc <- newIORef state
+  acc <- newJSRef state
   return $ \v -> do
-    s <- readIORef acc
+    s <- readJSRef acc
     let (s',v') = f s v
-    writeIORef acc s'
+    writeJSRef acc s'
     return v'
 
 snapshot :: Source b -> b -> Pipe a b
 snapshot (Source source) v0 = Pipe $ Snapshot source v0
-
--- delay dt = AsyncPipe $ APipeExprIO $ P.delay dt
 
 infixr 0 $$
 infixl 1 $=
@@ -83,7 +79,7 @@ infixr 2 =$=
 ifThenElsePipe :: (a -> Bool) -> Pipe a b -> Pipe a b -> Pipe a b
 ifThenElsePipe p (Pipe pexpr1) (Pipe pexpr2) = Pipe $ IfThenElse p pexpr1 pexpr2
 
-runApp :: App -> IO ()
+runApp :: App -> JS ()
 runApp (App e) = evalApp e
 
 parallel :: App -> App -> App

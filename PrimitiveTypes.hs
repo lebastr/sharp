@@ -71,7 +71,7 @@ mergeSink (Sink s1) (Sink s2) = Sink $ \v -> s1 v >> s2 v
 
 sourceSink :: Source a -> Sink a -> JS ()
 sourceSink (Source ref) sink = modifyJSRef ref (sink:)
-sourceSink (Merge s1 s2) sink = s1 `sourceSink` sink >> s2 `sourceSink` sink
+sourceSink (Merge s1 s2) sink = (s1 `sourceSink` sink) >> (s2 `sourceSink` sink)
 sourceSink EmptySource sink = return ()
 
 sourcePipe :: Source a -> Pipe a b -> JS (Source b)
