@@ -1,4 +1,4 @@
-test: tests/test2.hs
+tests/test2.js: tests/test2.hs
 	cd tests; fay --package fay-ref,fay-jquery  --include ..  test2.hs
 
 test1.js: *.hs

@@ -4,6 +4,7 @@
 module PrimitiveTypes where
 
 #ifdef FAY
+import Prelude
 import FayRef
 #else
 import Data.IORef
@@ -63,7 +64,7 @@ filterSource p source = do
   source `sourceSink` sink
   return $ Source ref
 
-newtype Sink a = Sink { runSink :: a -> JS () }
+data Sink a = Sink { runSink :: a -> JS () }
 
 data Pipe a b = Async (Sink a) (Source b)
               | Sync (a -> JS b)
