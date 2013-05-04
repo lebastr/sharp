@@ -1,11 +1,11 @@
 {-# LANGUAGE GADTs #-}
 
 module Expr where
+import Platform
 
 import PrimitiveTypes
-import Data.IORef
-import Map
-import Control.Monad
+import JSMap
+
 import Prelude hiding (lookup)
 
 data App = App
@@ -27,12 +27,12 @@ data Expr a where
   FilterSource :: Int -> (a -> Bool) -> Expr (Source a) -> Expr (Source a)
 
 -- Pipe section
-  PipeExpr :: IO (Pipe a b) -> Expr (Pipe a b)
+  PipeExpr :: JS (Pipe a b) -> Expr (Pipe a b)
   PipePipe :: Expr (Pipe a b) -> Expr (Pipe b c) -> Expr (Pipe a c)
   FirstArrowA :: Expr (Pipe a b) -> Expr (Pipe (a,t) (b,t))
   IfThenElse :: (a -> Bool) -> Expr (Pipe a b) -> Expr (Pipe a b) -> Expr (Pipe a b)
   Snapshot :: Expr (Source b) -> b -> Expr (Pipe a b)
-  
+
 -- class Draw a where
 --   draw :: a -> String
 
@@ -42,13 +42,13 @@ data Expr a where
 -- instance Draw Int where
 --   draw s = "(" ++ show s ++ ")"
 
--- instance (Draw a, Draw b) => Draw (a,b) where  
+-- instance (Draw a, Draw b) => Draw (a,b) where
 --   draw (a,b) = "(" ++ draw a ++ " " ++ draw b ++ ")"
-  
--- instance (Draw a, Draw b, Draw c) => Draw (a,b,c) where  
+
+-- instance (Draw a, Draw b, Draw c) => Draw (a,b,c) where
 --   draw (a,b,c) = "(" ++ draw a ++ " " ++ draw b ++ " " ++ draw c ++ ")"
 
--- instance (Draw a, Draw b, Draw c, Draw d) => Draw (a,b,c,d) where  
+-- instance (Draw a, Draw b, Draw c, Draw d) => Draw (a,b,c,d) where
 --   draw (a,b,c,d) = "(" ++ draw a ++ " " ++ draw b ++ " " ++ draw c ++ " " ++ draw d ++ ")"
 
 -- instance Draw (Expr a) where
@@ -83,54 +83,54 @@ data Expr a where
 
 -- refId = modifyIORef reify (+1) >> readIORef reify
 
-memo :: IORef Map -> Int -> IO a -> IO a
+memo :: JSRef JSMap -> Int -> JS a -> JS a
 memo ref p action = do
-  m <- readIORef ref
+  m <- readJSRef ref
   case lookup p m undefined of
     Nothing -> do
       s <- action
-      modifyIORef ref (insert p s)
+      modifyJSRef ref (insert p s)
       return s
     Just value -> do
       return value
 
-evalApp :: Expr App -> IO ()
+evalApp :: Expr App -> JS ()
 evalApp (Parallel app1 app2) = evalApp app1 >> evalApp app2
 evalApp (SourceSink source sink) = do
-  state <- newIORef empty
-  a <- evalSource state source 
+  state <- newJSRef empty
+  a <- evalSource state source
   b <- evalSink state sink
   sourceSink a b
-    
-evalSource :: IORef Map -> Expr (Source a) -> IO (Source a)
+
+evalSource :: JSRef JSMap -> Expr (Source a) -> JS (Source a)
 evalSource state (SourceExpr rId s) = memo state rId $ return s
 evalSource state (SourcePipe rId sExpr pExpr) = memo state rId $ do
   s <- evalSource state sExpr
   p <- evalPipe state pExpr
   sourcePipe s p
-  
+
 evalSource state (MergeSource rId sExpr1 sExpr2) = memo state rId $ do
   s1 <- evalSource state sExpr1
   s2 <- evalSource state sExpr2
   return $ s1 `Merge` s2
-    
+
 evalSource state (FilterSource rId p sExpr) = memo state rId $ do
   s <- evalSource state sExpr
   filterSource p s
 
-evalSink :: IORef Map -> Expr (Sink a) -> IO (Sink a)
+evalSink :: JSRef JSMap -> Expr (Sink a) -> JS (Sink a)
 evalSink _ (SinkExpr s) = return s
 evalSink state (PipeSink pExpr sExpr) = do
   p <- evalPipe state pExpr
   s <- evalSink state sExpr
   pipeSink p s
-    
+
 evalSink state (MergeSink sExpr1 sExpr2) = do
   s1 <- evalSink state sExpr1
   s2 <- evalSink state sExpr2
   return $ mergeSink s1 s2
 
-evalPipe :: IORef Map -> Expr (Pipe a b) -> IO (Pipe a b)
+evalPipe :: JSRef JSMap -> Expr (Pipe a b) -> JS (Pipe a b)
 evalPipe _ (PipeExpr p) = p
 evalPipe state (PipePipe pExpr1 pExpr2) = do
   p1 <- evalPipe state pExpr1
@@ -138,56 +138,56 @@ evalPipe state (PipePipe pExpr1 pExpr2) = do
   pipePipe p1 p2
 
 evalPipe state (Snapshot sExpr v0) = do
-  ref <- newIORef v0
+  ref <- newJSRef v0
   source <- evalSource state sExpr
-  sourceSink source $ Sink $ writeIORef ref
-  return $ Sync $ \_ -> readIORef ref
+  sourceSink source $ Sink $ writeJSRef ref
+  return $ Sync $ \_ -> readJSRef ref
 
 evalPipe state (FirstArrowA pExpr) = do
   pipe <- evalPipe state pExpr
-  case pipe of 
+  case pipe of
     Sync p -> return $ Sync $ \(v,t) -> do
       v' <- p v
       return (v',t)
-      
+
     Async sink source -> do
-      ref <- newIORef undefined
+      ref <- newJSRef undefined
       let sink' = Sink $ \(v,t) -> do
-            writeIORef ref t
+            writeJSRef ref t
             runSink sink v
-            
+
           pipe' = Sync $ \v -> do
-            t <- readIORef ref
+            t <- readJSRef ref
             return (v,t)
-              
+
       source' <- sourcePipe source pipe'
       return $ Async sink' source'
-    
+
 evalPipe state (IfThenElse p pExpr1 pExpr2) = do
   pipe1 <- evalPipe state pExpr1
   pipe2 <- evalPipe state pExpr2
   evalPipe' p pipe1 pipe2
   where
-    evalPipe' p (Sync runPipe1) (Sync runPipe2) = do 
+    evalPipe' p (Sync runPipe1) (Sync runPipe2) = do
       return $ Sync $ \v -> case p v of
         True -> runPipe1 v
         False -> runPipe2 v
 
     evalPipe' p pipe1 pipe2 = do
-      ref1 <- newIORef []
-      ref2 <- newIORef []
+      ref1 <- newJSRef []
+      ref2 <- newJSRef []
       let sink = Sink $ \v -> case p v of
             True -> do
-              subs <- readIORef ref1
-              forM_ subs $ \c -> runSink c v          
-            False -> do
-              subs <- readIORef ref2
+              subs <- readJSRef ref1
               forM_ subs $ \c -> runSink c v
-            
+            False -> do
+              subs <- readJSRef ref2
+              forM_ subs $ \c -> runSink c v
+
           source1 = Source ref1
           source2 = Source ref2
-    
+
       source1' <- sourcePipe source1 pipe1
       source2' <- sourcePipe source2 pipe2
-    
+
       return $ Async sink $ Merge source1' source2'

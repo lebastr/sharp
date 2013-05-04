@@ -1,31 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeFamilies, GeneralizedNewtypeDeriving, DeriveDataTypeable, GADTs #-}
-{-# LANGUAGE CPP #-}
-
 module PrimitiveTypes where
 
-#ifdef FAY
-import Prelude
-import FayRef
-#else
-import Data.IORef
-import Control.Monad
-#endif
-
-#ifdef FAY
-type JS = Fay
-type JSRef = FayRef
-newJSRef = newFayRef
-readJSRef = readFayRef
-modifyJSRef = modifyFayRef
-writeJSRef = writeFayRef
-#else
-type JS = IO
-type JSRef = IORef
-newJSRef = newIORef
-readJSRef = readIORef
-modifyJSRef = modifyIORef
-
-#endif
+import Platform
 
 data Source a = Source (JSRef [Sink a])
               | Merge (Source a) (Source a)
@@ -110,7 +86,7 @@ sourcePipe source@(Source ref) pipe = case pipe of
     let sink = Sink $ \v -> do
           subs <- readJSRef ref1
           case null subs of
-            True -> return ()
+            True -> return () -- TODO: think if it's a possible case
             False -> do
               v' <- runPipe v
               forM_ subs $ \c -> runSink c v'
@@ -148,4 +124,3 @@ pipePipe (Async sink source) pipe@(Sync _) = do
 pipePipe (Async sink1 source1) (Async sink2 source2) = do
     source1 `sourceSink` sink2
     return $ Async sink1 source2
-
