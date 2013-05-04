@@ -16,12 +16,12 @@ newtype Sink a = Sink (Expr (P.Sink a))
 newtype App = App (Expr E.App)
 
 tag :: Unique -> Int
-tag = undefined
+tag ref = unsafePerformJS $ modifyJSRef ref (+1) >> readJSRef ref
 
 unique :: Unique
-unique = undefined
+unique = unsafePerformJS $ newJSRef 0
 
-data Unique = Unique
+type Unique = JSRef Int
 
 filterSource :: (a -> Bool) -> Source a -> Source a
 filterSource p (Source sexpr) = Source $ FilterSource (tag unique) p sexpr
@@ -30,7 +30,7 @@ createSink :: (a -> JS ()) -> Sink a
 createSink s = Sink $ SinkExpr $ P.Sink s
 
 createSource :: ((a -> JS ()) -> JS ()) -> JS (Source a)
-createSource g = do 
+createSource g = do
   s <- P.createSource g
   return $ Source $ SourceExpr (tag unique) s
 
@@ -38,7 +38,7 @@ createSource g = do
 createSyncPipe :: JS (a -> JS b) -> Pipe a b
 createSyncPipe action = Pipe $ PipeExpr $ do
   p <- action
-  return $ P.Sync p 
+  return $ P.Sync p
 
 createAsyncPipe :: (a -> (b -> JS ()) -> JS ()) -> Pipe a b
 createAsyncPipe action = Pipe $ PipeExpr $ P.createAsyncPipe action
@@ -88,7 +88,7 @@ parallel (App e1) (App e2) = App $ e1 `Parallel` e2
 -- Arrow implementation for Pipe
 
 infixr 1 >>>
-infixr 3 ***  
+infixr 3 ***
 infixr 3 &&&
 
 idPipe :: Pipe a a
@@ -110,7 +110,7 @@ second a = f >>> first a >>> f where
 (***) p1 p2 = first p1 >>> second p2
 
 (&&&) :: Pipe b c -> Pipe b c' -> Pipe b (c,c')
-(&&&) p1 p2 = arr (\x -> (x,x)) >>> (p1 *** p2) 
+(&&&) p1 p2 = arr (\x -> (x,x)) >>> (p1 *** p2)
 
 -- Functor Pipe
 

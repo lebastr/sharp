@@ -23,7 +23,7 @@ createAsyncPipe action = do
         action v $ \v' -> forM_ subs $ \c -> runSink c v'
       source = Source ref
   return $ Async sink source
-        
+
 filterSource :: (a -> Bool) -> Source a -> JS (Source a)
 filterSource p source = do
   ref <- newJSRef []

@@ -1,10 +1,11 @@
 module PolyFrp ( module Control.Arrow
                , module Control.Applicative
                , module Data.Monoid
+               , module Control.Category
                , Sink, Source, Pipe, filterSource
                , createSink, createSource, createSyncPipe, createAsyncPipe
                , scanP, accum, snapshot, ($=), (=$=), (=$)
-               , ($$), ifThenElsePipe, parallel) where
+               , ($$), ifThenElsePipe, parallel, runApp) where
 
 import PrimitiveFrp hiding ((&&&), (***), arr)
 import qualified PrimitiveFrp as F
@@ -12,7 +13,7 @@ import Data.Monoid
 import Control.Arrow
 import Control.Category
 import Control.Applicative
-import Prelude hiding ((.))
+import Prelude hiding ((.), id)
 
 instance Category Pipe where
   id = idPipe
