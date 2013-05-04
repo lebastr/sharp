@@ -29,7 +29,7 @@ data Expr a where
 -- Pipe section
   PipeExpr :: JS (Pipe a b) -> Expr (Pipe a b)
   PipePipe :: Expr (Pipe a b) -> Expr (Pipe b c) -> Expr (Pipe a c)
-  FirstArrowA :: Expr (Pipe a b) -> Expr (Pipe (a,t) (b,t))
+  FirstArrow :: Expr (Pipe a b) -> Expr (Pipe (a,t) (b,t))
   IfThenElse :: (a -> Bool) -> Expr (Pipe a b) -> Expr (Pipe a b) -> Expr (Pipe a b)
   Snapshot :: Expr (Source b) -> b -> Expr (Pipe a b)
 
@@ -143,7 +143,7 @@ evalPipe state (Snapshot sExpr v0) = do
   sourceSink source $ Sink $ writeJSRef ref
   return $ Sync $ \_ -> readJSRef ref
 
-evalPipe state (FirstArrowA pExpr) = do
+evalPipe state (FirstArrow pExpr) = do
   pipe <- evalPipe state pExpr
   case pipe of
     Sync p -> return $ Sync $ \(v,t) -> do
