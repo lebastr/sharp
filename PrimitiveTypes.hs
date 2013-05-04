@@ -15,6 +15,15 @@ createSource call = do
     forM_ subs $ \c -> runSink c v
   return $ Source ref
 
+createAsyncPipe :: (a -> (b -> JS ()) -> JS ()) -> JS (Pipe a b)
+createAsyncPipe action = do
+  ref <- newJSRef []
+  let sink = Sink $ \v -> do
+        subs <- readJSRef ref
+        action v $ \v' -> forM_ subs $ \c -> runSink c v'
+      source = Source ref
+  return $ Async sink source
+        
 -- cAsyncPipe :: ((a -> JS ()) -> JS ()) -> JS (Source a)
 -- cAsyncPipe call = do
 --   ref <- newJSRef []

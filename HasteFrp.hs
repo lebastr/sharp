@@ -2,7 +2,7 @@ module HasteFrp ( module Control.Arrow
                 , module Control.Applicative
                 , module Data.Monoid
                 , Sink, Source, Pipe, filterSource
-                , createSink, createSource, createSyncPipe
+                , createSink, createSource, createSyncPipe, createAsyncPipe
                 , scanP, accum, snapshot, ($=), (=$=), (=$)
                 , ($$), ifThenElsePipe, parallel) where
 

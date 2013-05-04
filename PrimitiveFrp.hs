@@ -42,6 +42,9 @@ createSyncPipe action = Pipe $ PipeExpr $ do
   p <- action
   return $ P.Sync p 
 
+createAsyncPipe :: (a -> (b -> IO ()) -> IO ()) -> Pipe a b
+createAsyncPipe action = Pipe $ PipeExpr $ P.createAsyncPipe action
+
 scanP :: (a -> t -> a) -> a -> Pipe t a
 scanP f = accum g where
   g s v = let v' = f s v in (v',v')
