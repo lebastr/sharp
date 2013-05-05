@@ -42,3 +42,4 @@ getTimeObj = ffi "new Date()"
 
 jsTime :: DateObj -> Fay Time
 jsTime = ffi "%1.getTime()"
+
