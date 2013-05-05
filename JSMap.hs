@@ -47,8 +47,8 @@ lookup i m undef = case lookupX i m of
 -- FIXME: ugly workaround. Fay doesn't support qualified names
 #ifdef FAY
 lookupX k [] = Nothing
-lookupX k ((k1,v):_) | k == k1 = Just v
-                     | True = Nothing
+lookupX k ((k1,v):xs) | k == k1 = Just v
+                      | True = lookupX k xs
 #else
 lookupX = M.lookup
 #endif

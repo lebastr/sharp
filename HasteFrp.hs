@@ -1,4 +1,4 @@
-module HasteFrp ( module PolyFrp 
+module HasteFrp ( module PolyFrp
                 , Time, delay, trace, button, window, input, tagTime) where
 
 import PolyFrp

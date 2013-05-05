@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeFamilies, GeneralizedNewtypeDeriving, DeriveDataTypeable, GADTs #-}
 module PrimitiveTypes where
 
+import Prelude
 import Platform
 
 data PSource a = PSource (JSRef [PSink a])
@@ -38,7 +39,7 @@ filterPSource p source = do
 data PSink a = PSink { runPSink :: a -> JS () }
 
 data PPipe a b = Async (PSink a) (PSource b)
-              | Sync (a -> JS b)
+               | Sync (a -> JS b)
 
 -- instance Category SyncPPipe where
 --   id = SyncPPipe $ runKleisli id

@@ -5,6 +5,7 @@ module PrimitiveFrp where
 import Expr
 import PrimitiveTypes
 import Platform
+import Prelude
 
 data Pipe a b = Pipe (Expr (PPipe a b))
 
