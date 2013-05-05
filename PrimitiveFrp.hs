@@ -2,7 +2,6 @@
 
 module PrimitiveFrp where
 
-import Expr hiding (App)
 import Expr
 import PrimitiveTypes
 import Platform
