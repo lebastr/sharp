@@ -8,30 +8,30 @@ import JSMap
 
 import Prelude hiding (lookup)
 
-data App = App
+data EApp
 
 data Expr a where
--- App section
-  Parallel :: Expr App -> Expr App -> Expr App
-  SourceSink :: Expr (Source a) -> Expr (Sink a) -> Expr App
+-- EApp section
+  Parallel :: Expr EApp -> Expr EApp -> Expr EApp
+  SourceSink :: Expr (PSource a) -> Expr (PSink a) -> Expr EApp
 
 -- Sink section
-  SinkExpr  :: Sink a -> Expr (Sink a)
-  PipeSink :: Expr (Pipe a b) -> Expr (Sink b) -> Expr (Sink a)
-  MergeSink :: Expr (Sink a) -> Expr (Sink a) -> Expr (Sink a)
+  SinkExpr  :: PSink a -> Expr (PSink a)
+  PipeSink :: Expr (PPipe a b) -> Expr (PSink b) -> Expr (PSink a)
+  MergeSink :: Expr (PSink a) -> Expr (PSink a) -> Expr (PSink a)
 
 -- Source section
-  SourceExpr :: Int -> Source a -> Expr (Source a)
-  SourcePipe :: Int -> Expr (Source a) -> Expr (Pipe a b) -> Expr (Source b)
-  MergeSource :: Int -> Expr (Source a) -> Expr (Source a) -> Expr (Source a)
-  FilterSource :: Int -> (a -> Bool) -> Expr (Source a) -> Expr (Source a)
+  SourceExpr :: Int -> PSource a -> Expr (PSource a)
+  SourcePipe :: Int -> Expr (PSource a) -> Expr (PPipe a b) -> Expr (PSource b)
+  MergeSource :: Int -> Expr (PSource a) -> Expr (PSource a) -> Expr (PSource a)
+  FilterSource :: Int -> (a -> Bool) -> Expr (PSource a) -> Expr (PSource a)
 
 -- Pipe section
-  PipeExpr :: JS (Pipe a b) -> Expr (Pipe a b)
-  PipePipe :: Expr (Pipe a b) -> Expr (Pipe b c) -> Expr (Pipe a c)
-  FirstArrow :: Expr (Pipe a b) -> Expr (Pipe (a,t) (b,t))
-  IfThenElse :: (a -> Bool) -> Expr (Pipe a b) -> Expr (Pipe a b) -> Expr (Pipe a b)
-  Snapshot :: Expr (Source b) -> b -> Expr (Pipe a b)
+  PipeExpr :: JS (PPipe a b) -> Expr (PPipe a b)
+  PipePipe :: Expr (PPipe a b) -> Expr (PPipe b c) -> Expr (PPipe a c)
+  FirstArrow :: Expr (PPipe a b) -> Expr (PPipe (a,t) (b,t))
+  IfThenElse :: (a -> Bool) -> Expr (PPipe a b) -> Expr (PPipe a b) -> Expr (PPipe a b)
+  Snapshot :: Expr (PSource b) -> b -> Expr (PPipe a b)
 
 -- class Draw a where
 --   draw :: a -> String
@@ -94,20 +94,20 @@ memo ref p action = do
     Just value -> do
       return value
 
-evalApp :: Expr App -> JS ()
+evalApp :: Expr EApp -> JS ()
 evalApp (Parallel app1 app2) = evalApp app1 >> evalApp app2
 evalApp (SourceSink source sink) = do
   state <- newJSRef empty
   a <- evalSource state source
   b <- evalSink state sink
-  sourceSink a b
+  sourcePSink a b
 
-evalSource :: JSRef JSMap -> Expr (Source a) -> JS (Source a)
+evalSource :: JSRef JSMap -> Expr (PSource a) -> JS (PSource a)
 evalSource state (SourceExpr rId s) = memo state rId $ return s
 evalSource state (SourcePipe rId sExpr pExpr) = memo state rId $ do
   s <- evalSource state sExpr
   p <- evalPipe state pExpr
-  sourcePipe s p
+  sourcePPipe s p
 
 evalSource state (MergeSource rId sExpr1 sExpr2) = memo state rId $ do
   s1 <- evalSource state sExpr1
@@ -116,31 +116,31 @@ evalSource state (MergeSource rId sExpr1 sExpr2) = memo state rId $ do
 
 evalSource state (FilterSource rId p sExpr) = memo state rId $ do
   s <- evalSource state sExpr
-  filterSource p s
+  filterPSource p s
 
-evalSink :: JSRef JSMap -> Expr (Sink a) -> JS (Sink a)
+evalSink :: JSRef JSMap -> Expr (PSink a) -> JS (PSink a)
 evalSink _ (SinkExpr s) = return s
 evalSink state (PipeSink pExpr sExpr) = do
   p <- evalPipe state pExpr
   s <- evalSink state sExpr
-  pipeSink p s
+  pipePSink p s
 
 evalSink state (MergeSink sExpr1 sExpr2) = do
   s1 <- evalSink state sExpr1
   s2 <- evalSink state sExpr2
-  return $ mergeSink s1 s2
+  return $ mergePSink s1 s2
 
-evalPipe :: JSRef JSMap -> Expr (Pipe a b) -> JS (Pipe a b)
+evalPipe :: JSRef JSMap -> Expr (PPipe a b) -> JS (PPipe a b)
 evalPipe _ (PipeExpr p) = p
 evalPipe state (PipePipe pExpr1 pExpr2) = do
   p1 <- evalPipe state pExpr1
   p2 <- evalPipe state pExpr2
-  pipePipe p1 p2
+  pipePPipe p1 p2
 
 evalPipe state (Snapshot sExpr v0) = do
   ref <- newJSRef v0
   source <- evalSource state sExpr
-  sourceSink source $ Sink $ writeJSRef ref
+  sourcePSink source $ PSink $ writeJSRef ref
   return $ Sync $ \_ -> readJSRef ref
 
 evalPipe state (FirstArrow pExpr) = do
@@ -152,15 +152,15 @@ evalPipe state (FirstArrow pExpr) = do
 
     Async sink source -> do
       ref <- newJSRef undefined
-      let sink' = Sink $ \(v,t) -> do
+      let sink' = PSink $ \(v,t) -> do
             writeJSRef ref t
-            runSink sink v
+            runPSink sink v
 
           pipe' = Sync $ \v -> do
             t <- readJSRef ref
             return (v,t)
 
-      source' <- sourcePipe source pipe'
+      source' <- sourcePPipe source pipe'
       return $ Async sink' source'
 
 evalPipe state (IfThenElse p pExpr1 pExpr2) = do
@@ -176,18 +176,18 @@ evalPipe state (IfThenElse p pExpr1 pExpr2) = do
     evalPipe' p pipe1 pipe2 = do
       ref1 <- newJSRef []
       ref2 <- newJSRef []
-      let sink = Sink $ \v -> case p v of
+      let sink = PSink $ \v -> case p v of
             True -> do
               subs <- readJSRef ref1
-              forM_ subs $ \c -> runSink c v
+              forM_ subs $ \c -> runPSink c v
             False -> do
               subs <- readJSRef ref2
-              forM_ subs $ \c -> runSink c v
+              forM_ subs $ \c -> runPSink c v
 
-          source1 = Source ref1
-          source2 = Source ref2
+          source1 = PSource ref1
+          source2 = PSource ref2
 
-      source1' <- sourcePipe source1 pipe1
-      source2' <- sourcePipe source2 pipe2
+      source1' <- sourcePPipe source1 pipe1
+      source2' <- sourcePPipe source2 pipe2
 
       return $ Async sink $ Merge source1' source2'

@@ -3,119 +3,119 @@ module PrimitiveTypes where
 
 import Platform
 
-data Source a = Source (JSRef [Sink a])
-              | Merge (Source a) (Source a)
-              | EmptySource
+data PSource a = PSource (JSRef [PSink a])
+              | Merge (PSource a) (PSource a)
+              | EmptyPSource
 
-createSource :: ((a -> JS ()) -> JS ()) -> JS (Source a)
-createSource call = do
+createPSource :: ((a -> JS ()) -> JS ()) -> JS (PSource a)
+createPSource call = do
   ref <- newJSRef []
   call $ \v -> do
     subs <- readJSRef ref
-    forM_ subs $ \c -> runSink c v
-  return $ Source ref
+    forM_ subs $ \c -> runPSink c v
+  return $ PSource ref
 
-createAsyncPipe :: (a -> (b -> JS ()) -> JS ()) -> JS (Pipe a b)
-createAsyncPipe action = do
+createAsyncPPipe :: (a -> (b -> JS ()) -> JS ()) -> JS (PPipe a b)
+createAsyncPPipe action = do
   ref <- newJSRef []
-  let sink = Sink $ \v -> do
+  let sink = PSink $ \v -> do
         subs <- readJSRef ref
-        action v $ \v' -> forM_ subs $ \c -> runSink c v'
-      source = Source ref
+        action v $ \v' -> forM_ subs $ \c -> runPSink c v'
+      source = PSource ref
   return $ Async sink source
 
-filterSource :: (a -> Bool) -> Source a -> JS (Source a)
-filterSource p source = do
+filterPSource :: (a -> Bool) -> PSource a -> JS (PSource a)
+filterPSource p source = do
   ref <- newJSRef []
-  let sink = Sink $ \v -> do
+  let sink = PSink $ \v -> do
         subs <- readJSRef ref
         case p v of
           False -> return ()
-          True  -> forM_ subs $ \c -> runSink c v
-  source `sourceSink` sink
-  return $ Source ref
+          True  -> forM_ subs $ \c -> runPSink c v
+  source `sourcePSink` sink
+  return $ PSource ref
 
-data Sink a = Sink { runSink :: a -> JS () }
+data PSink a = PSink { runPSink :: a -> JS () }
 
-data Pipe a b = Async (Sink a) (Source b)
+data PPipe a b = Async (PSink a) (PSource b)
               | Sync (a -> JS b)
 
--- instance Category SyncPipe where
---   id = SyncPipe $ runKleisli id
+-- instance Category SyncPPipe where
+--   id = SyncPPipe $ runKleisli id
 --   (.) = flip link
 
--- instance Arrow SyncPipe where
---   arr = SyncPipe . runKleisli . arr
---   first = SyncPipe . runKleisli . first . Kleisli . runSyncPipe
+-- instance Arrow SyncPPipe where
+--   arr = SyncPPipe . runKleisli . arr
+--   first = SyncPPipe . runKleisli . first . Kleisli . runSyncPPipe
 
--- instance Functor (SyncPipe t) where
+-- instance Functor (SyncPPipe t) where
 --   fmap f p = arr f . p
 
--- instance Applicative (SyncPipe t) where
+-- instance Applicative (SyncPPipe t) where
 --   pure = arr . const
 --   (<*>) fp vp = arr (\(f,v) -> f v) . (fp &&& vp)
 
--- instance Monoid a => Monoid (SyncPipe t a) where
+-- instance Monoid a => Monoid (SyncPPipe t a) where
 --   mempty = arr $ const mempty
 --   mappend p1 p2 = mappend <$> p1 <*> p2
 
--- instance Monoid (Sink a) where
---   mempty = Sink $ \_ -> return ()
---   mappend (Sink s1) (Sink s2) = Sink $ \v -> s1 v >> s2 v
+-- instance Monoid (PSink a) where
+--   mempty = PSink $ \_ -> return ()
+--   mappend (PSink s1) (PSink s2) = PSink $ \v -> s1 v >> s2 v
 
-emptySink :: Sink a
-emptySink = Sink $ \_ -> return ()
+emptyPSink :: PSink a
+emptyPSink = PSink $ \_ -> return ()
 
-mergeSink :: Sink a -> Sink a -> Sink a
-mergeSink (Sink s1) (Sink s2) = Sink $ \v -> s1 v >> s2 v
+mergePSink :: PSink a -> PSink a -> PSink a
+mergePSink (PSink s1) (PSink s2) = PSink $ \v -> s1 v >> s2 v
 
-sourceSink :: Source a -> Sink a -> JS ()
-sourceSink (Source ref) sink = modifyJSRef ref (sink:)
-sourceSink (Merge s1 s2) sink = (s1 `sourceSink` sink) >> (s2 `sourceSink` sink)
-sourceSink EmptySource sink = return ()
+sourcePSink :: PSource a -> PSink a -> JS ()
+sourcePSink (PSource ref) sink = modifyJSRef ref (sink:)
+sourcePSink (Merge s1 s2) sink = (s1 `sourcePSink` sink) >> (s2 `sourcePSink` sink)
+sourcePSink EmptyPSource sink = return ()
 
-sourcePipe :: Source a -> Pipe a b -> JS (Source b)
-sourcePipe source@(Source ref) pipe = case pipe of
-  Sync runPipe -> do
+sourcePPipe :: PSource a -> PPipe a b -> JS (PSource b)
+sourcePPipe source@(PSource ref) pipe = case pipe of
+  Sync runPPipe -> do
     ref1 <- newJSRef []
-    let sink = Sink $ \v -> do
+    let sink = PSink $ \v -> do
           subs <- readJSRef ref1
           case null subs of
             True -> return () -- TODO: think if it's a possible case
             False -> do
-              v' <- runPipe v
-              forM_ subs $ \c -> runSink c v'
+              v' <- runPPipe v
+              forM_ subs $ \c -> runPSink c v'
 
     modifyJSRef ref (sink:)
-    return $ Source ref1
+    return $ PSource ref1
 
   Async sink source' -> do
-    source `sourceSink` sink
+    source `sourcePSink` sink
     return source'
 
-sourcePipe (Merge s1 s2) pipe = do
-  s1' <- s1 `sourcePipe` pipe
-  s2' <- s2 `sourcePipe` pipe
+sourcePPipe (Merge s1 s2) pipe = do
+  s1' <- s1 `sourcePPipe` pipe
+  s2' <- s2 `sourcePPipe` pipe
   return $ Merge s1' s2'
 
-sourcePipe EmptySource pipe = return EmptySource
+sourcePPipe EmptyPSource pipe = return EmptyPSource
 
-pipeSink :: Pipe a b -> Sink b -> JS (Sink a)
-pipeSink (Sync p) (Sink s) = return $ Sink $ \v -> p v >>= s
-pipeSink (Async sink source) sink1 = do
-  source `sourceSink` sink1
+pipePSink :: PPipe a b -> PSink b -> JS (PSink a)
+pipePSink (Sync p) (PSink s) = return $ PSink $ \v -> p v >>= s
+pipePSink (Async sink source) sink1 = do
+  source `sourcePSink` sink1
   return sink
 
-pipePipe :: Pipe a b -> Pipe b c -> JS (Pipe a c)
-pipePipe (Sync p1) (Sync p2) = return $ Sync $ \v -> p1 v >>= p2
-pipePipe p1@(Sync _) (Async sink source) = do
-  sink' <- p1 `pipeSink` sink
+pipePPipe :: PPipe a b -> PPipe b c -> JS (PPipe a c)
+pipePPipe (Sync p1) (Sync p2) = return $ Sync $ \v -> p1 v >>= p2
+pipePPipe p1@(Sync _) (Async sink source) = do
+  sink' <- p1 `pipePSink` sink
   return $ Async sink' source
 
-pipePipe (Async sink source) pipe@(Sync _) = do
-  s' <- source `sourcePipe` pipe
+pipePPipe (Async sink source) pipe@(Sync _) = do
+  s' <- source `sourcePPipe` pipe
   return $ Async sink s'
 
-pipePipe (Async sink1 source1) (Async sink2 source2) = do
-    source1 `sourceSink` sink2
+pipePPipe (Async sink1 source1) (Async sink2 source2) = do
+    source1 `sourcePSink` sink2
     return $ Async sink1 source2

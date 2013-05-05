@@ -3,17 +3,19 @@
 module PrimitiveFrp where
 
 import Expr hiding (App)
-import qualified Expr as E
-import qualified PrimitiveTypes as P
+import Expr
+import PrimitiveTypes
 import Platform
 
-newtype Pipe a b = Pipe (Expr (P.Pipe a b))
+data Pipe a b = Pipe (Expr (PPipe a b))
 
-newtype Source a = Source (Expr (P.Source a))
+data Source a = Source (Expr (PSource a))
 
-newtype Sink a = Sink (Expr (P.Sink a))
+data Sink a = Sink (Expr (PSink a))
 
-newtype App = App (Expr E.App)
+data App = App (Expr EApp)
+
+type Unique = JSRef Int
 
 tag :: Unique -> Int
 tag ref = unsafePerformJS $ modifyJSRef ref (+1) >> readJSRef ref
@@ -21,27 +23,25 @@ tag ref = unsafePerformJS $ modifyJSRef ref (+1) >> readJSRef ref
 unique :: Unique
 unique = unsafePerformJS $ newJSRef 0
 
-type Unique = JSRef Int
-
 filterSource :: (a -> Bool) -> Source a -> Source a
 filterSource p (Source sexpr) = Source $ FilterSource (tag unique) p sexpr
 
 createSink :: (a -> JS ()) -> Sink a
-createSink s = Sink $ SinkExpr $ P.Sink s
+createSink s = Sink $ SinkExpr $ PSink s
 
 createSource :: ((a -> JS ()) -> JS ()) -> JS (Source a)
 createSource g = do
-  s <- P.createSource g
+  s <- createPSource g
   return $ Source $ SourceExpr (tag unique) s
 
 
 createSyncPipe :: JS (a -> JS b) -> Pipe a b
 createSyncPipe action = Pipe $ PipeExpr $ do
   p <- action
-  return $ P.Sync p
+  return $ Sync p
 
 createAsyncPipe :: (a -> (b -> JS ()) -> JS ()) -> Pipe a b
-createAsyncPipe action = Pipe $ PipeExpr $ P.createAsyncPipe action
+createAsyncPipe action = Pipe $ PipeExpr $ createAsyncPPipe action
 
 scanP :: (a -> t -> a) -> a -> Pipe t a
 scanP f = accum g where
@@ -52,7 +52,9 @@ accum f state = createSyncPipe $ do
   acc <- newJSRef state
   return $ \v -> do
     s <- readJSRef acc
-    let (s',v') = f s v
+    let r = f s v
+        s' = fst r
+        v' = snd r
     writeJSRef acc s'
     return v'
 
@@ -133,7 +135,7 @@ fmapSource f s = sourcePipe s $ arr f
 -- Monoid Source
 
 emptySource :: Source a
-emptySource = Source $ SourceExpr (tag unique) P.EmptySource
+emptySource = Source $ SourceExpr (tag unique) EmptyPSource
 
 mergeSource :: Source a -> Source a -> Source a
 mergeSource (Source s1) (Source s2) = Source $ MergeSource (tag unique) s1 s2
@@ -141,7 +143,7 @@ mergeSource (Source s1) (Source s2) = Source $ MergeSource (tag unique) s1 s2
 -- Monoid Sink
 
 emptySink :: Sink a
-emptySink = Sink $ SinkExpr $ P.emptySink
+emptySink = Sink $ SinkExpr $ emptyPSink
 
 mergeSink :: Sink a -> Sink a -> Sink a
 mergeSink (Sink s1) (Sink s2) = Sink $ s1 `MergeSink` s2

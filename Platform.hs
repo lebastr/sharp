@@ -9,7 +9,7 @@ import FFI
 import Data.IORef
 import Control.Monad
 import qualified Unsafe.Coerce as UC
-import qualified System.IO.Unsafe as UIO
+import qualified System.IO.Unsafe as SIU
 #endif
 
 #ifdef FAY
@@ -24,9 +24,8 @@ writeJSRef = writeFayRef
 unsafeCoerce :: a -> b
 unsafeCoerce = ffi "%1"
 
-unsafePerformJS = JS a -> a
+unsafePerformJS :: JS a -> a
 unsafePerformJS = ffi "%1"
-
 #else
 type JS = IO
 type JSRef = IORef
@@ -36,5 +35,5 @@ modifyJSRef = modifyIORef
 writeJSRef = writeIORef
 
 unsafeCoerce = UC.unsafeCoerce
-unsafePerformJS = UIO.unsafePerformIO
+unsafePerformJS = SIU.unsafePerformIO
 #endif
