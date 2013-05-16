@@ -1,5 +1,6 @@
+import Sharp.FayFrp
+
 import Prelude
-import FayFrp
 
 import JQuery
 

@@ -1,8 +1,9 @@
-import Prelude
-import PrimitiveTypes
+import Sharp.PrimitiveTypes
 
-import FFI
+import Prelude
+
 import JQuery
+import FFI
 
 document :: Document
 document = ffi "document"

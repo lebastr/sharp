@@ -1,7 +1,8 @@
 import Prelude
-import FFI
-import Sharp.FayFrp
 
+import Sharp.Frp
+
+import FFI
 import JQuery
 
 type Point = (Double, Double)
