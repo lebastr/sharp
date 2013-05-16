@@ -1,9 +1,9 @@
-module FayFrp ( module PrimitiveFrp
-              , Time, document, trace, createFaySource
-              , delay, setTimeout, tagTime ) where
+module Sharp.FayFrp ( module Sharp.PrimitiveFrp
+                    , Time, document, trace, createFaySource
+                    , delay, setTimeout, tagTime ) where
 
 import Prelude
-import PrimitiveFrp
+import Sharp.PrimitiveFrp
 
 import FFI
 import JQuery

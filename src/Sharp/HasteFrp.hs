@@ -1,7 +1,7 @@
-module HasteFrp ( module PolyFrp
-                , Time, delay, trace, button, window, input, tagTime) where
+module Sharp.HasteFrp ( module Sharp.PolyFrp
+                      , Time, delay, trace, button, window, input, tagTime) where
 
-import PolyFrp
+import Sharp.PolyFrp
 import Haste
 import Haste.DOM
 import Prelude hiding (id, (.))

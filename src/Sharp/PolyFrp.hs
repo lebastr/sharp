@@ -1,14 +1,14 @@
-module PolyFrp ( module Control.Arrow
-               , module Control.Applicative
-               , module Data.Monoid
-               , module Control.Category
-               , Sink, Source, Pipe, filterSource
-               , createSink, createSource, createSyncPipe, createAsyncPipe
-               , scanP, accum, snapshot, ($=), (=$=), (=$)
-               , ($$), ifThenElsePipe, parallel, runApp) where
+module Sharp.PolyFrp ( module Control.Arrow
+                     , module Control.Applicative
+                     , module Data.Monoid
+                     , module Control.Category
+                     , Sink, Source, Pipe, filterSource
+                     , createSink, createSource, createSyncPipe, createAsyncPipe
+                     , scanP, accum, snapshot, ($=), (=$=), (=$)
+                     , ($$), ifThenElsePipe, parallel, runApp) where
 
-import PrimitiveFrp hiding ((&&&), (***), arr)
-import qualified PrimitiveFrp as F
+import Sharp.PrimitiveFrp hiding ((&&&), (***), arr)
+import qualified Sharp.PrimitiveFrp as F
 import Data.Monoid
 import Control.Arrow
 import Control.Category

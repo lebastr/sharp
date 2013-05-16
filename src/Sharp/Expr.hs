@@ -1,10 +1,11 @@
 {-# LANGUAGE GADTs #-}
 
-module Expr where
-import Platform
+module Sharp.Expr where
 
-import PrimitiveTypes
-import JSMap
+import Sharp.Platform
+
+import Sharp.PrimitiveTypes
+import Sharp.JSMap
 
 import Prelude hiding (lookup)
 

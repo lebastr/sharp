@@ -1,5 +1,5 @@
 import Haste.DOM
-import HasteFrp
+import Sharp.HasteFrp
 import Prelude hiding ((.), id)
 
 lastSeq :: Time -> Source a -> Source a

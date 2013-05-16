@@ -1,8 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses, TypeFamilies, GeneralizedNewtypeDeriving, DeriveDataTypeable, GADTs #-}
-module PrimitiveTypes where
+module Sharp.PrimitiveTypes where
 
 import Prelude
-import Platform
+import Sharp.Platform
 
 data PSource a = PSource (JSRef [PSink a])
               | Merge (PSource a) (PSource a)

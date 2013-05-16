@@ -1,6 +1,6 @@
 import Prelude
 import FFI
-import FayFrp
+import Sharp.FayFrp
 
 import JQuery
 

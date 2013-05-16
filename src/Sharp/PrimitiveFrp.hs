@@ -1,10 +1,10 @@
 {-# LANGUAGE GADTs #-}
 
-module PrimitiveFrp where
+module Sharp.PrimitiveFrp where
 
-import Expr
-import PrimitiveTypes
-import Platform
+import Sharp.Expr
+import Sharp.PrimitiveTypes
+import Sharp.Platform
 import Prelude
 
 data Pipe a b = Pipe (Expr (PPipe a b))

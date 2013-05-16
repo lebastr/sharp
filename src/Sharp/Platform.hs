@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-module Platform(module Platform, forM_) where
+module Sharp.Platform(module Sharp.Platform, forM_) where
 
 #ifdef FAY
 import Prelude

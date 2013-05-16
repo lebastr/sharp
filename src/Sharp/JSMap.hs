@@ -1,8 +1,8 @@
 {-# LANGUAGE RankNTypes, ImpredicativeTypes, ExistentialQuantification #-}
 {-# LANGUAGE CPP #-}
-module JSMap(JSMap, empty, keys, insert, lookup) where
+module Sharp.JSMap(JSMap, empty, keys, insert, lookup) where
 
-import Platform
+import Sharp.Platform
 
 import Prelude hiding(lookup)
 #ifndef FAY
