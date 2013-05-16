@@ -26,7 +26,7 @@ createMouseSource element = do
   let posX = arr $ flip eventX element
       posY = arr $ flip eventY element
       posP = posX &&& posY
-      
+
       down' = down $= posP $= arr Down
       up' = up $= posP $= arr Up
       move' = move $= posP $= arr Move
@@ -45,6 +45,9 @@ lineTo = ffi "callLineTo (%1, %2, %3)"
 beginPath  :: Canvas -> Fay ()
 beginPath = ffi "callBeginPath(%1)"
 
+setColor :: Canvas -> Fay ()
+setColor = ffi "callColor(%1)"
+
 closePath :: Canvas -> Fay ()
 closePath = ffi "callClosePath (%1)"
 
@@ -53,43 +56,35 @@ stroke = ffi "callStroke(%1)"
 
 type Canvas = JQuery
 
-data DrawCommand = Start Point
-                 | Draw Point
-                 | Stop
-                 deriving (Show)
-
-drawCanvas :: Canvas -> Sink DrawCommand
-drawCanvas canvas = createSink $ \e -> case e of
-  Start p -> do
-    moveTo canvas (fst p) (snd p)
-    beginPath canvas
-  Draw p -> lineTo canvas (fst p) (snd p)
-  Stop -> do
-    closePath canvas
+drawCanvas :: Canvas -> Sink (Point,Point)
+drawCanvas canvas = createSink $ \((x0,y0),(x1,y1)) -> do
+    moveTo canvas x0 y0
+--    beginPath canvas
+    setColor canvas
+    lineTo canvas x1 y1
+--    closePath canvas
     stroke canvas
 
-transform :: Source MouseEvent -> Source DrawCommand
+transform :: Source MouseEvent -> Source (Point,Point)
 transform ev = let pipe = accum (\s v -> case s of
-                                    True -> case v of
-                                      Move p -> (True, Just (Draw p))
-                                      Up p -> (False, Just Stop)
-                                    False -> case v of
-                                      Down p -> (True, Just (Start p))
-                                      Move p -> (False, Nothing)) False
-                   f = filterSource (\v -> case v of
-                                        Nothing -> False
-                                        Just _ -> True)
-               in f (ev $= pipe) $= arr fromJust
+                                    Just p0 -> case v of
+                                      Down p1  -> (Just p1, Just (p0,p1))
+                                      Move p1 -> (Just p1, Just (p0,p1))
+                                      Up p -> (Nothing, Nothing)
+                                    Nothing -> case v of
+                                      Down p -> (Just p, Nothing)
+                                      Move p -> (Nothing, Nothing)
+                                      Up p   -> (Nothing,Nothing)) Nothing
+                   filter = filterSource (\s -> case s of
+                                             Just _ -> True
+                                             _ -> False)
+
+               in filter (ev $= pipe) $= arr fromJust
 
 main = documentReady `flip` document $ \e -> do
   putStrLn "hello world"
   canvas <- select "#canvas"
   source <- createMouseSource canvas
   let w = window "#window1"
-      ev = transform source $= trace "drawCmd"
-      app1 = transform source $= trace "drawCmd" $$ drawCanvas canvas
-      app2 = ev $= arr (\p -> case p of
-                           Draw (x,y) -> show x ++ " " ++ show y
-                           Start _ -> "start"
-                           Stop  -> "stop") $$ w
-  runApp $ app1 `parallel` app2
+      app1 = transform source $$ drawCanvas canvas
+  runApp app1

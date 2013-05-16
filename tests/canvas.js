@@ -1,3 +1,8 @@
+function callColor (canvas, color) {
+    var ctx = canvas[0].getContext("2d");
+    ctx.fillStyle='#FF0000';
+}
+
 function callMoveTo (canvas, x, y) {
     var ctx = canvas[0].getContext("2d");
     ctx.moveTo(x,y);
