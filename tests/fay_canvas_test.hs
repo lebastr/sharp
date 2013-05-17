@@ -1,5 +1,3 @@
-import Prelude
-
 import Sharp.Frp
 
 import FFI
