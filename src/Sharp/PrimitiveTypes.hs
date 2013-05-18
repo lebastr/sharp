@@ -8,6 +8,14 @@ data PSource a = PSource (JSRef [PSink a])
               | Merge (PSource a) (PSource a)
               | EmptyPSource
 
+psource :: a -> JS (a -> JS (), PSource a)
+psource v = do
+  ref <- newJSRef []
+  let call x = do
+        subs <- readJSRef ref
+        forM_ subs $ \c -> runPSink c x
+  return (call, PSource ref)
+
 createPSource :: ((a -> JS ()) -> JS ()) -> JS (PSource a)
 createPSource call = do
   ref <- newJSRef []

@@ -2,7 +2,7 @@ module Sharp.PolyFrp ( module Control.Arrow
                      , module Control.Applicative
                      , module Data.Monoid
                      , module Control.Category
-                     , Sink, Source, Pipe, filterSource
+                     , Sink, Source, Pipe, filterSource, source
                      , createSink, createSource, createSyncPipe, createAsyncPipe
                      , scanP, accum, snapshot, ($=), (=$=), (=$)
                      , ($$), ifThenElsePipe, parallel, runApp) where

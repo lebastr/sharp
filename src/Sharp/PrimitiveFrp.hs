@@ -29,11 +29,15 @@ filterSource p (Source sexpr) = Source $ FilterSource (tag unique) p sexpr
 createSink :: (a -> JS ()) -> Sink a
 createSink s = Sink $ SinkExpr $ PSink s
 
+source :: a -> JS (a -> JS (), Source a)
+source v = do
+  (c,s) <- psource v
+  return (c, Source $ SourceExpr (tag unique) s)
+
 createSource :: ((a -> JS ()) -> JS ()) -> JS (Source a)
 createSource g = do
   s <- createPSource g
   return $ Source $ SourceExpr (tag unique) s
-
 
 createSyncPipe :: JS (a -> JS b) -> Pipe a b
 createSyncPipe action = Pipe $ PipeExpr $ do
