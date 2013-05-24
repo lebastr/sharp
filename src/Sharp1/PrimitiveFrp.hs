@@ -5,6 +5,8 @@ import Control.Category
 import Control.Arrow
 import Control.Monad.Cont
 import Data.IORef
+import Control.Monad.STM
+import Control.Concurrent.STM.TVar
 
 --------------------Pipe type--------------------
 
@@ -13,9 +15,7 @@ data Pipe a b = Sync (Kleisli (IO) a b)
 
 toAsync :: Pipe a b -> Pipe a b
 toAsync p@(Async _) = p
-toAsync (Sync (Kleisli e)) = Async $ Kleisli $
-                             \a -> ContT $
-                                   \cps -> e a >>= cps
+toAsync (Sync (Kleisli e)) = Async $ Kleisli $ lift . e
 
 instance Category Pipe where
   id = Sync id
@@ -28,7 +28,6 @@ instance Arrow Pipe where
   arr f = Sync $ arr f
   first (Sync a) = Sync $ first a
   first (Async a) = Async $ first a
-
 
 ----------------------- Source type -------------------
 
@@ -53,9 +52,19 @@ mergeSource s1 s2 = clojureSources [s1,s2]
 
 snapshot :: Source a -> a -> IO (Pipe t a)
 snapshot source value = do
-  ref <- newIORef value
-  runContT source $ writeIORef ref
-  return $ Sync $ Kleisli $ const $ readIORef ref
+  ref <- newTVarIO value
+  runContT source $ \v -> atomically $ writeTVar ref v
+  return $ Sync $ Kleisli $ const $ atomically $ readTVar ref
+
+createSource :: IO (Sink a, Source a)
+createSource = do
+  ref <- newIORef []
+  let sink = \v -> do
+        subs <- readIORef ref
+        forM_ subs $ \s -> s v
+
+      source = ContT $ \cps -> modifyIORef ref (++[cps])
+  return (sink, source)
 
 -------------------------- Sink type ---------------------------
 
